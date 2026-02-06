@@ -43,7 +43,7 @@ jobs :
 
       - name: Building the docker image
         run : |
-          docker build -t ${{ steps.image-tag.outputs.tag }} -t ${{ steps.image-tag.outputs.tag-sha }} Dockerfile
+          docker build -t ${{ steps.image-tag.outputs.tag }} -t ${{ steps.image-tag.outputs.tag-sha }} ./Dockerfile
       
       - name : Pushing docker image
         run : |
