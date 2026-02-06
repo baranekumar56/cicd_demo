@@ -1,0 +1,79 @@
+name: Deploying to Google Cloud run
+
+on : 
+  push :
+    branches :
+      - main
+
+env :
+  PROJECT_ID : netstudent-00-9d8430cf5d84
+  REGION :  us-central1
+  API_GATE_WAY_SERVICE_NAME : zzz
+  BACKEND_SERVICE_NAME : aaa
+  ARTIFACT_REGISTRY_NAME : demo-repo
+  ZONE : bbb
+
+jobs :
+  deploy :
+    
+    runs-on : ubuntu-latest
+
+    steps :
+      - name : Checkout repository
+        uses : actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      
+      - name: Configuring Docker for Google artifact registry
+        run : | 
+          gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
+        
+      - name : Tagging the image
+        id : image-tag
+        run : |
+          echo "tag=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_NAME }}/demo:latest" >> $GITHUB_OUTPUT
+          echo "tag-sha=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_NAME }}/demo:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Building the docker image
+        run : |
+          docker build -t ${{ steps.image-tag.outputs.tag }} -t ${{ steps.image-tag.outputs.tag-sha }} Dockerfile
+      
+      - name : Pushing docker image
+        run : |
+          docker push ${{ steps.image-tag.outputs.tag }}
+          docker push ${{ steps.image-tag.outputs.tag-sha }}
+      
+      - name : Deploying to cloud run 
+        run : |
+          gcloud run deploy demo \
+            --image ${{ steps.image-tag.outputs.tag }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --cpu 1 \
+            --memory 512Mi \
+            --max-instances 5 \
+            --timeout 300s
+            --quiet
+      
+      - name : Getting service url
+        id : get-url
+        run : |
+          URL=$(gcloud run services describe demo --region ${{ env.REGION }} --platform managed --format 'value(status.url)')
+          echo "URL=$URL" >> $GITHUB_OUTPUT
+      
+      - name : VErifying deployment
+        run : |
+          curl -f ${{ steps.get-url.outputs.URL }} || exit 1
+
+
+      
+
