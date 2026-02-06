@@ -33,22 +33,20 @@ jobs :
       
       - name: Configuring Docker for Google artifact registry
         run : |
-          gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
         
       - name : Tagging the image
         id : image-tag
         run : |
-          echo "tag=${{env.REGION}}-docker.pkg.dev/${{env.PROJECT_ID}}/${{env.ARTIFACT_REGISTRY_NAME}}/demo:latest" >> $GITHUB_OUTPUT
-          echo "tag-sha=${{env.REGION}}-docker.pkg.dev/${{env.PROJECT_ID}}/${{env.ARTIFACT_REGISTRY_NAME}}/demo:${{github.sha}}" >> $GITHUB_OUTPUT
-
+          echo "tag=${{env.REGION}}-docker.pkg.dev/${{env.PROJECT_ID}}/${{env.ARTIFACT_REGISTRY_NAME}}/demo" >> $GITHUB_OUTPUT
+        
       - name: Building the docker image
         run : |
-          docker build -t ${{ steps.image-tag.outputs.tag }} -t ${{ steps.image-tag.outputs.tag-sha }} .
+          docker build -t ${{ steps.image-tag.outputs.tag }} .
       
       - name : Pushing docker image
         run : |
           docker push ${{ steps.image-tag.outputs.tag }}
-          docker push ${{ steps.image-tag.outputs.tag-sha }}
       
       - name : Deploying to cloud run 
         run : |
@@ -61,7 +59,7 @@ jobs :
             --cpu 1 \
             --memory 512Mi \
             --max-instances 5 \
-            --timeout 300s
+            --timeout 300s \
             --quiet
       
       - name : Getting service url
